@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>星载推进剂隔离装置 · 联锁捕获冻结复核</title>
+<style>
+  :root { --bg:#0f1420; --panel:#171e2e; --line:#2a3550; --fg:#e6ebf5;
+          --muted:#93a0bb; --ok:#38c172; --bad:#ef4444; --warn:#f59e0b; --accent:#5b8def; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 "Segoe UI",system-ui,sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:16px 24px; border-bottom:1px solid var(--line); background:#121826; }
+  header h1 { margin:0 0 4px; font-size:18px; }
+  header p { margin:0; color:var(--muted); font-size:12px; }
+  main { display:grid; grid-template-columns:minmax(420px,520px) 1fr; gap:0; min-height:calc(100vh - 64px); }
+  section.form { padding:18px 22px; border-right:1px solid var(--line); overflow:auto; max-height:calc(100vh - 64px); }
+  section.out { padding:18px 22px; overflow:auto; max-height:calc(100vh - 64px); }
+  fieldset { border:1px solid var(--line); border-radius:8px; margin:0 0 14px; padding:10px 12px; background:var(--panel); }
+  legend { color:var(--accent); padding:0 6px; font-weight:600; }
+  label { display:block; font-size:12px; color:var(--muted); margin:8px 0 3px; }
+  input, select { background:#0d1322; color:var(--fg); border:1px solid var(--line); border-radius:5px;
+                  padding:5px 8px; font-size:13px; width:100%; }
+  input[type=checkbox] { width:auto; }
+  .row { display:flex; gap:8px; align-items:center; }
+  .row > * { flex:1; }
+  .grow2 { flex:2; }
+  button { cursor:pointer; border-radius:6px; border:1px solid var(--line); padding:7px 14px;
+           background:#1d2740; color:var(--fg); font-size:13px; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  button.danger { color:#ffb4b4; border-color:#5b2a2a; }
+  .tr, .ev { border:1px dashed var(--line); border-radius:6px; padding:8px; margin:8px 0; background:#101728; }
+  .tr-head, .ev-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+  .badge { font-size:11px; color:var(--muted); }
+  .guards, .resets { margin-top:6px; }
+  .guard-row { display:flex; gap:6px; align-items:center; margin:4px 0; }
+  .reset-chip { display:inline-flex; gap:4px; align-items:center; background:#1d2740; border-radius:12px;
+                padding:2px 8px; margin:2px 4px 2px 0; font-size:12px; }
+  h3 { font-size:14px; margin:18px 0 8px; }
+  .verdict { border-radius:10px; padding:14px 16px; margin-bottom:14px; font-weight:600; }
+  .verdict.ok { background:rgba(56,193,114,.12); border:1px solid var(--ok); }
+  .verdict.bad { background:rgba(239,68,68,.12); border:1px solid var(--bad); }
+  .verdict.info { background:rgba(91,141,239,.12); border:1px solid var(--accent); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin:10px 0; }
+  .step { border-left:3px solid var(--accent); padding-left:12px; margin:12px 0; }
+  .step.bad { border-left-color:var(--bad); }
+  .frag { background:#101728; border:1px solid var(--line); border-radius:6px; padding:8px 10px; margin:8px 0; }
+  table { border-collapse:collapse; width:100%; font-size:12px; margin:6px 0; }
+  th, td { border:1px solid var(--line); padding:3px 7px; text-align:left; }
+  th { color:var(--muted); font-weight:500; }
+  code { background:#0d1322; padding:1px 5px; border-radius:4px; }
+  pre { white-space:pre-wrap; word-break:break-word; background:#0d1322; border:1px solid var(--line);
+        border-radius:6px; padding:10px; font-size:12px; max-height:340px; overflow:auto; }
+  .muted { color:var(--muted); font-size:12px; }
+  .tag { display:inline-block; border-radius:4px; padding:0 7px; font-size:11px; margin-left:6px; }
+  .tag.ok { background:rgba(56,193,114,.2); color:var(--ok); }
+  .tag.bad { background:rgba(239,68,68,.2); color:#ff8a8a; }
+  .tag.warn { background:rgba(245,158,11,.2); color:var(--warn); }
+  .tools { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>星载推进剂隔离装置 · 联锁捕获冻结复核台</h1>
+  <p>精确有理数区域（DBM）传播 · 闭区间守卫切分 · 复位执行 · 全部可能轨迹确定且抵达终态方可冻结</p>
+</header>
+<main>
+<section class="form">
+  <div class="tools">
+    <button class="primary" id="btn-submit" type="button">提交复核</button>
+    <button id="btn-example" type="button">载入合法示例</button>
+    <button id="btn-gap" type="button">载入冷却缺口示例</button>
+    <button id="btn-retrans" type="button">重传：同标识等价</button>
+    <button id="btn-conflict" type="button">重传：同标识冲突</button>
+  </div>
+
+  <fieldset>
+    <legend>审计标识与位置</legend>
+    <label>稳定审计标识 audit_id</label>
+    <input id="audit_id" value="AUDIT-ISO-0001">
+    <label>位置（逗号分隔，至多 8 个）</label>
+    <input id="locations" value="INIT, COOLING, ARMED, FROZEN">
+    <div class="row">
+      <div><label>初始位置</label><input id="initial" value="INIT"></div>
+      <div class="grow2"><label>终态集合（逗号分隔）</label><input id="accepting" value="FROZEN"></div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>时钟（至多 4 个）</legend>
+    <div id="clock-box"></div>
+    <button type="button" id="btn-add-clock">+ 时钟</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>事件类型（逗号分隔）</legend>
+    <input id="events" value="close_cmd, confirm, freeze_cmd">
+  </fieldset>
+
+  <fieldset>
+    <legend>迁移（至多 16 条；闭区间守卫 min≤x≤max；复位集合）</legend>
+    <div id="trans-box"></div>
+    <button type="button" id="btn-add-trans">+ 迁移</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>到达事件序列（按捕获顺序，至多 32 项；相对时刻闭区间）</legend>
+    <div id="seq-box"></div>
+    <button type="button" id="btn-add-seq">+ 事件</button>
+  </fieldset>
+</section>
+
+<section class="out" id="output">
+  <div class="verdict info">尚未提交。左侧录入模型与事件序列后点击“提交复核”。</div>
+</section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+let clockRows = [], transRows = [], seqRows = [];
+
+function splitList(v) { return v.split(",").map(s => s.trim()).filter(Boolean); }
+
+function addClock(name) {
+  if (clockRows.length >= 4) { alert("至多 4 个时钟"); return; }
+  const box = $("clock-box");
+  const div = document.createElement("div");
+  div.className = "row";
+  div.innerHTML = `<input class="c-name" placeholder="时钟名，如 tCool">
+    <button type="button" class="danger">删除</button>`;
+  div.querySelector("input").value = name || "";
+  div.querySelector("button").onclick = () => { div.remove(); clockRows = [...$("clock-box").children]; refreshClockRefs(); };
+  box.appendChild(div);
+  clockRows = [...box.children];
+  refreshClockRefs();
+}
+function clockNames() { return [...$("clock-box").querySelectorAll(".c-name")].map(i => i.value.trim()).filter(Boolean); }
+
+function refreshClockRefs() {
+  const names = clockNames();
+  document.querySelectorAll(".g-clock, .reset-box").forEach(el => {
+    const cur = el.value;
+    el.innerHTML = names.map(n => `<option ${n===cur?"selected":""}>${esc(n)}</option>`).join("");
+  });
+}
+
+function addTrans(t) {
+  if (transRows.length >= 16) { alert("至多 16 条迁移"); return; }
+  const locs = () => splitList($("locations").value);
+  const evs = () => splitList($("events").value);
+  const box = $("trans-box");
+  const div = document.createElement("div");
+  div.className = "tr";
+  div.innerHTML = `
+    <div class="tr-head"><span class="badge">迁移</span>
+      <button type="button" class="danger">删除</button></div>
+    <div class="row">
+      <div><label>源位置</label><select class="t-src"></select></div>
+      <div><label>事件</label><select class="t-ev"></select></div>
+      <div><label>目标位置</label><select class="t-dst"></select></div>
+    </div>
+    <div class="guards"><label>闭区间守卫（时钟：min ≤ x ≤ max，分数如 9/2）</label><div class="guard-list"></div>
+      <button type="button" class="btn-guard">+ 守卫</button></div>
+    <div class="resets"><label>复位时钟</label><div class="reset-chips"></div></div>`;
+  box.appendChild(div);
+  transRows = [...box.children];
+  const fillSel = (sel, vals, val) => { sel.innerHTML = vals.map(v => `<option ${v===val?"selected":""}>${esc(v)}</option>`).join(""); };
+  const refill = () => { fillSel(div.querySelector(".t-src"), locs(), t?.source); fillSel(div.querySelector(".t-dst"), locs(), t?.target); fillSel(div.querySelector(".t-ev"), evs(), t?.event); };
+  refill();
+  div.querySelector("button.danger").onclick = () => { div.remove(); transRows=[...box.children]; };
+  div.querySelector(".btn-guard").onclick = () => addGuard(div);
+  // reset chips are rebuilt from clock names
+  const renderResets = (set) => {
+    const host = div.querySelector(".reset-chips");
+    host.innerHTML = "";
+    clockNames().forEach(n => {
+      const chip = document.createElement("label");
+      chip.className = "reset-chip";
+      chip.innerHTML = `<input type="checkbox" class="rst" ${set.has(n)?"checked":""}> ${esc(n)}`;
+      host.appendChild(chip);
+    });
+  };
+  div._renderResets = renderResets;
+  renderResets(new Set(t?.resets || []));
+  (t?.guard || []).forEach(g => addGuard(div, g));
+  div._refill = refill;
+}
+
+function addGuard(trDiv, g) {
+  const list = trDiv.querySelector(".guard-list");
+  const row = document.createElement("div");
+  row.className = "guard-row";
+  row.innerHTML = `<select class="g-clock" style="flex:1"></select>
+    <input class="g-min" placeholder="min" style="flex:1">
+    <span>≤ x ≤</span>
+    <input class="g-max" placeholder="max" style="flex:1">
+    <button type="button" class="danger">×</button>`;
+  list.appendChild(row);
+  row.querySelector("button").onclick = () => row.remove();
+  if (g) { row.querySelector(".g-min").value = g.min; row.querySelector(".g-max").value = g.max; }
+  refreshClockRefs();
+  requestAnimationFrame(() => { const s = row.querySelector(".g-clock"); if (g) s.value = g.clock; });
+}
+
+function addSeq(e) {
+  if (seqRows.length >= 32) { alert("至多 32 项事件"); return; }
+  const box = $("seq-box");
+  const div = document.createElement("div");
+  div.className = "ev row";
+  div.innerHTML = `<select class="e-name"></select>
+    <input class="e-min" placeholder="相对 min（分数可）" >
+    <input class="e-max" placeholder="相对 max">
+    <button type="button" class="danger">×</button>`;
+  box.appendChild(div);
+  seqRows = [...box.children];
+  const sel = div.querySelector(".e-name");
+  const fill = () => { const cur = sel.value; sel.innerHTML = splitList($("events").value).map(v => `<option ${v===cur?"selected":""}>${esc(v)}</option>`).join(""); };
+  fill(); div._fill = fill;
+  div.querySelector("button").onclick = () => { div.remove(); seqRows=[...box.children]; };
+  if (e) { sel.value = e.event; div.querySelector(".e-min").value = e.min; div.querySelector(".e-max").value = e.max; }
+}
+
+function refreshAllSelects() {
+  document.querySelectorAll(".tr").forEach(d => d._refill && d._refill());
+  document.querySelectorAll(".ev").forEach(d => d._fill && d._fill());
+  document.querySelectorAll(".tr").forEach(d => d._renderResets && d._renderResets(new Set()));
+  refreshClockRefs();
+}
+
+function collectPayload() {
+  const transitions = [...$("trans-box").children].map(d => {
+    const guard = [...d.querySelectorAll(".guard-row")].map(r => ({
+      clock: r.querySelector(".g-clock").value,
+      min: r.querySelector(".g-min").value.trim(),
+      max: r.querySelector(".g-max").value.trim(),
+    })).filter(g => g.min !== "" && g.max !== "");
+    const validClocks = new Set(clockNames());
+    const resets = [...d.querySelectorAll(".rst:checked")]
+      .map(c => c.parentElement.textContent.trim())
+      .filter(n => validClocks.has(n));
+    return {
+      source: d.querySelector(".t-src").value,
+      target: d.querySelector(".t-dst").value,
+      event: d.querySelector(".t-ev").value,
+      guard, resets,
+    };
+  });
+  const event_sequence = [...$("seq-box").children].map(d => ({
+    event: d.querySelector(".e-name").value,
+    min: d.querySelector(".e-min").value.trim(),
+    max: d.querySelector(".e-max").value.trim(),
+  }));
+  return {
+    audit_id: $("audit_id").value.trim(),
+    locations: splitList($("locations").value),
+    initial: $("initial").value.trim(),
+    accepting: splitList($("accepting").value),
+    clocks: clockNames(),
+    events: splitList($("events").value),
+    transitions, event_sequence,
+  };
+}
+
+/* ---------------- rendering ---------------- */
+
+function fmtRange(r) {
+  if (!r) return "—";
+  const l = (r.min_strict ? "(" : "[") + (r.min ?? "-∞");
+  const u = (r.max ?? "∞") + (r.max_strict ? ")" : "]");
+  return `${l}, ${u}`;
+}
+function regionTable(region) {
+  if (!region) return "";
+  const rows = Object.entries(region).map(([k, r]) =>
+    `<tr><td>${esc(k)}</td><td>${fmtRange(r)}</td></tr>`).join("");
+  return `<table><tr><th>时钟</th><th>可能取值区间</th></tr>${rows}</table>`;
+}
+function guardTable(g) {
+  const rows = Object.entries(g || {}).map(([c, b]) =>
+    `<tr><td>${esc(c)}</td><td>${esc(b.min)} ≤ x ≤ ${esc(b.max)}</td></tr>`).join("");
+  return rows ? `<table><tr><th>守卫时钟</th><th>闭区间</th></tr>${rows}</table>` : "<span class='muted'>（无守卫，永真）</span>";
+}
+function clockValTable(v) {
+  const rows = Object.entries(v || {}).map(([k, val]) => `<tr><td>${esc(k)}</td><td><code>${esc(val)}</code></td></tr>`).join("");
+  return `<table><tr><th>时钟</th><th>可代入取值（精确有理数）</th></tr>${rows}</table>`;
+}
+
+function renderResult(res) {
+  const out = $("output");
+  const ok = res.verdict === "freeze_approved";
+  const subTag = { new: `<span class="tag ok">首次提交</span>`, replayed: `<span class="tag warn">语义等价重传 · 回放原结论</span>`,
+                   conflict: `<span class="tag bad">内容冲突 · 保留原证据</span>` }[res.submission] || "";
+  let html = `<div class="verdict ${ok?"ok":"bad"}">
+    ${ok ? "✅ 冻结通过（FREEZE APPROVED）" : "⛔ 冻结被拒绝（REJECTED）"} ${subTag}
+    <div class="muted" style="font-weight:400;margin-top:4px">原因码：<code>${esc(res.reason)}</code>
+    ${res.earliest_event!==null && res.earliest_event!==undefined ? ` · 最早事件：#${res.earliest_event_index} <code>${esc(res.earliest_event)}</code>` : ""}
+    </div></div>`;
+  if (res.retransmission) {
+    html += `<div class="card"><b>重传处置：</b>${esc(res.retransmission.message)}
+      <div class="muted">${res.retransmission.original_fingerprint ? `原指纹 <code>${esc(res.retransmission.original_fingerprint.slice(0,16))}…</code> ｜ 来传指纹 <code>${esc(res.retransmission.incoming_fingerprint.slice(0,16))}…</code>` : ""}</div></div>`;
+  }
+  if (res.detail && res.detail.message) html += `<div class="card">${esc(res.detail.message)}</div>`;
+  if (res.detail && res.detail.clock_values) {
+    html += `<div class="card"><h3>阻断点可代入时钟取值</h3>${clockValTable(res.detail.clock_values)}</div>`;
+  }
+  if (res.detail && res.detail.blocking_guards) {
+    html += `<div class="card"><h3>阻断守卫核对（逐项说明该取值为何不满足）</h3>`;
+    html += res.detail.blocking_guards.map(t => `<div class="frag">
+      <b>迁移 #${t.transition_id}</b>：${esc(t.source)} → ${esc(t.target)}
+      ${guardTable(t.guard)}
+      ${t.resets.length ? `<div class="muted">复位：${t.resets.map(esc).join(", ")}</div>`:""}
+      ${t.satisfied ? `<span class="tag ok">满足</span>` : `<span class="tag bad">不满足</span>`}
+      ${t.violations.length ? `<table><tr><th>时钟</th><th>取值</th><th>守卫</th><th>违背</th></tr>` +
+        t.violations.map(v => `<tr><td>${esc(v.clock)}</td><td><code>${esc(v.value)}</code></td>
+          <td>${esc(v.bound_min)} ≤ x ≤ ${esc(v.bound_max)}</td><td>${v.reason==="below_min"?"低于下界":"高于上界"}</td></tr>`).join("") + `</table>` : ""}
+    </div>`).join("");
+    html += `</div>`;
+  }
+  if (res.evidence && res.evidence.length) {
+    html += `<h3>逐事件区域证据</h3>`;
+    res.evidence.forEach((step, idx) => {
+      const isBad = idx === res.earliest_event_index && !ok;
+      html += `<div class="step ${isBad?"bad":""}"><b>#${step.event_index} ${esc(step.event)}</b>
+        <span class="muted">相对时刻推进 [${esc(step.relative_interval.min)}, ${esc(step.relative_interval.max)}]</span>`;
+      step.fragments.forEach(f => {
+        html += `<div class="frag"><b>位置：</b>${esc(f.location_before)}
+          <div class="row" style="align-items:flex-start"><div style="flex:1">推进前区域${regionTable(f.region_before)}</div>
+          <div style="flex:1">推进后区域${regionTable(f.region_after_elapse)}</div></div>`;
+        (f.enabled||[]).forEach(en => {
+          html += `<div>启用迁移 #${en.transition_id} → ${esc(en.target)}${guardTable(en.guard)}
+            <span class="muted">复位：${(en.resets||[]).map(esc).join(", ")||"无"} ｜ 覆盖分片：${en.covered_parts}</span></div>`;
+        });
+        (f.taken||[]).forEach(tk => {
+          html += `<details><summary>采用迁移 #${tk.transition_id} → ${esc(tk.target)} 的区域证据</summary>
+            <div class="row" style="align-items:flex-start"><div style="flex:1">守卫覆盖${regionTable(tk.region_covered)}</div>
+            <div style="flex:1">复位后${regionTable(tk.region_after_reset)}</div></div></details>`;
+        });
+        if (f.uncovered_region) html += `<div style="color:#ff8a8a">未覆盖区域：${regionTable(f.uncovered_region)}</div>`;
+        html += `</div>`;
+      });
+      html += `</div>`;
+    });
+  }
+  if (res.witness_trajectory && res.witness_trajectory.length) {
+    html += `<h3>具体轨迹（所有时钟取值与相对时延均可直接代入核对）</h3><div class="card">`;
+    html += `<table><tr><th>#</th><th>事件</th><th>相对时延 δ</th><th>位置</th><th>迁移</th><th>事件前时钟</th><th>事件时时钟</th><th>复位后</th></tr>`;
+    res.witness_trajectory.forEach(w => {
+      html += `<tr><td>${w.event_index}</td><td>${esc(w.event)}</td><td><code>${esc(w.relative_delay)}</code></td>
+        <td>${esc(w.location_before)}${w.location_after?(" → "+esc(w.location_after)):""}</td>
+        <td>${w.transition_id!==undefined ? "#"+w.transition_id : '<span class="tag bad">阻断</span>'}</td>
+        <td>${Object.entries(w.clocks_before||{}).map(([k,v])=>`${esc(k)}=<code>${esc(v)}</code>`).join("<br>")}</td>
+        <td>${Object.entries(w.clocks_at_event||{}).map(([k,v])=>`${esc(k)}=<code>${esc(v)}</code>`).join("<br>")}</td>
+        <td>${Object.entries(w.clocks_after_reset||{}).map(([k,v])=>`${esc(k)}=<code>${esc(v)}</code>`).join("<br>")}</td></tr>`;
+    });
+    html += `</table></div>`;
+  }
+  if (res.final_locations) html += `<div class="card muted">全部可能轨迹终态：${res.final_locations.map(esc).join(", ")}</div>`;
+  out.innerHTML = html;
+}
+
+/* ---------------- submit ---------------- */
+
+$("btn-submit").onclick = async () => {
+  const payload = collectPayload();
+  $("output").innerHTML = `<div class="verdict info">复核中：区域传播与守卫切分…</div>`;
+  try {
+    const r = await fetch("/api/reviews", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
+    const res = await r.json();
+    renderResult(res);
+  } catch (e) {
+    $("output").innerHTML = `<div class="verdict bad">请求失败：${esc(e.message)}</div>`;
+  }
+};
+
+/* ---------------- examples ---------------- */
+
+function loadModel(spec) {
+  $("audit_id").value = spec.audit_id;
+  $("locations").value = spec.locations.join(", ");
+  $("initial").value = spec.initial;
+  $("accepting").value = spec.accepting.join(", ");
+  $("events").value = spec.events.join(", ");
+  $("clock-box").innerHTML = ""; clockRows = [];
+  spec.clocks.forEach(c => addClock(c));
+  $("trans-box").innerHTML = ""; transRows = [];
+  spec.transitions.forEach(t => addTrans(t));
+  $("seq-box").innerHTML = ""; seqRows = [];
+  spec.event_sequence.forEach(e => addSeq(e));
+}
+
+// legal scenario: valve cooling window [10, 20] then arming [20, 30], confirm
+// must arrive inside [9/2, 11] (i.e. 4.5..11) style overlap tests built in verify
+const LEGAL = {
+  audit_id: "AUDIT-ISO-0001",
+  locations: ["INIT","COOLING","ARMED","FROZEN"],
+  initial: "INIT", accepting: ["FROZEN"],
+  clocks: ["tCool","tArm"],
+  events: ["close_cmd","confirm","freeze_cmd"],
+  transitions: [
+    { source:"INIT", target:"COOLING", event:"close_cmd", guard:[], resets:["tCool"] },
+    { source:"COOLING", target:"ARMED", event:"confirm",
+      guard:[{clock:"tCool",min:"10",max:"20"}], resets:["tArm"] },
+    { source:"ARMED", target:"FROZEN", event:"freeze_cmd",
+      guard:[{clock:"tArm",min:"5",max:"15"}], resets:[] },
+  ],
+  event_sequence: [
+    { event:"close_cmd", min:"0", max:"0" },
+    { event:"confirm", min:"10", max:"12" },
+    { event:"freeze_cmd", min:"6", max:"8" },
+  ],
+};
+// gap scenario: confirm can land at tCool in (20, 22] — between cooling [10,20]
+// and an alternate band [22,30]; earliest uncovered event is #confirm
+const GAP = JSON.parse(JSON.stringify(LEGAL));
+GAP.audit_id = "AUDIT-ISO-GAP";
+GAP.transitions = [
+  { source:"INIT", target:"COOLING", event:"close_cmd", guard:[], resets:["tCool"] },
+  { source:"COOLING", target:"ARMED", event:"confirm",
+    guard:[{clock:"tCool",min:"10",max:"20"}], resets:["tArm"] },
+  { source:"COOLING", target:"ARMED", event:"confirm",
+    guard:[{clock:"tCool",min:"22",max:"30"}], resets:["tArm"] },
+  { source:"ARMED", target:"FROZEN", event:"freeze_cmd",
+    guard:[{clock:"tArm",min:"5",max:"15"}], resets:[] },
+];
+GAP.event_sequence = [
+  { event:"close_cmd", min:"0", max:"0" },
+  { event:"confirm", min:"19", max:"22" },
+  { event:"freeze_cmd", min:"6", max:"8" },
+];
+
+$("btn-example").onclick = () => loadModel(LEGAL);
+$("btn-gap").onclick = () => loadModel(GAP);
+$("btn-retrans").onclick = () => { loadModel(LEGAL); $("audit_id").value = "AUDIT-ISO-0001"; $("btn-submit").click(); };
+$("btn-conflict").onclick = async () => {
+  // first ensure original exists
+  loadModel(LEGAL);
+  await (await fetch("/api/reviews",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(collectPayload())})).json();
+  // now send same id with altered content (widen confirm window)
+  const spec = JSON.parse(JSON.stringify(LEGAL));
+  spec.event_sequence[1] = { event:"confirm", min:"9", max:"25" };
+  loadModel(spec);
+  $("btn-submit").click();
+};
+
+$("locations").addEventListener("change", refreshAllSelects);
+$("events").addEventListener("change", refreshAllSelects);
+
+// initial form
+["tCool","tArm"].forEach(addClock);
+LEGAL.transitions.forEach(addTrans);
+LEGAL.event_sequence.forEach(addSeq);
+</script>
+</body>
+</html>

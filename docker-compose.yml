@@ -1,0 +1,55 @@
+# 星载推进剂隔离装置 · 联锁捕获冻结复核
+# Compose 编排：
+#   web    —— 复核 API + 页面（带 /health 健康检查）
+#   verify —— 规则测试 + HTTP 冒烟，全部通过后以状态码 0 退出
+#
+# 宿主机端口可配置：HOST_PORT=8080 docker compose up -d web
+# 绑定地址可配置：HOST_BIND=127.0.0.1（默认 0.0.0.0）
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: interlock-review:latest
+    container_name: interlock-review-web
+    ports:
+      - "${HOST_BIND:-0.0.0.0}:${HOST_PORT:-8000}:8000"
+    environment:
+      STORE_PATH: /data/reviews.json
+      HOST: 0.0.0.0
+      PORT: "8000"
+    volumes:
+      - review-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import json, sys, urllib.request
+          r = urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=5)
+          sys.exit(0 if json.load(r).get("status") == "ok" else 1)
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 3s
+
+  verify:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: interlock-review:latest
+    container_name: interlock-review-verify
+    depends_on:
+      web:
+        condition: service_healthy
+    environment:
+      WEB_HOST: web
+    entrypoint: ["sh", "scripts/verify.sh"]
+    restart: "no"
+
+volumes:
+  review-data:
+    name: interlock-review-data
